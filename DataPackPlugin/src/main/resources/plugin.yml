@@ -1,0 +1,4 @@
+name: DataPackUpload
+version: '${project.version}'
+main: jp.xhw.datapackupload.plugin.DataPackPlugin
+api-version: '1.20'

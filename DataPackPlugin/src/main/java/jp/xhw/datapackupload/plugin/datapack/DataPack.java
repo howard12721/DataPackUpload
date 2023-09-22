@@ -1,15 +1,14 @@
 package jp.xhw.datapackupload.plugin.datapack;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
 
-public record DataPack(File file) {
+public record DataPack(InputStream inputStream) {
 
     private static final Set<String> requiredEntries = Set.of(
             "data",
@@ -18,7 +17,7 @@ public record DataPack(File file) {
 
     public DataPack {
         // Validation
-        try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(file))) {
+        try (ZipInputStream zipInputStream = new ZipInputStream(inputStream)) {
             Set<String> nameList = new HashSet<>();
             ZipEntry entry;
             while ((entry = zipInputStream.getNextEntry()) != null) {

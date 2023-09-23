@@ -33,6 +33,10 @@ public class EventHandler extends ListenerAdapter {
 
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
+        if (!this.bot.getPlugin().getSettings().getUploadChannels().contains(event.getChannel().getIdLong())) {
+            return;
+        }
+
         for (Message.Attachment attachment : event.getMessage().getAttachments()) {
             if (attachment.getFileExtension() == null || !attachment.getFileExtension().equals("zip")) {
                 continue;

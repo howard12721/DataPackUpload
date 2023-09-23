@@ -16,7 +16,4 @@ public class Settings {
     @YamlKey("discord.upload-channels")
     private List<Long> uploadChannels;
 
-    @YamlKey("discord.upload-roles")
-    private List<Long> uploadRoles;
-
 }

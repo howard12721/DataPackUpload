@@ -20,7 +20,7 @@ public class DataPackService implements IDataPackService {
     final Class<?> positionClass;
 
     final Field consoleField;
-    // Methods
+    
     final Method getPackRepositoryMethod;
     final Method reloadResourcesMethod;
     final Method reloadPackRepositoryMethod;

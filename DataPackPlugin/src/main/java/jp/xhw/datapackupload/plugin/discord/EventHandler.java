@@ -1,5 +1,6 @@
 package jp.xhw.datapackupload.plugin.discord;
 
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -7,6 +8,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import org.jetbrains.annotations.NotNull;
 
+import java.awt.*;
 import java.io.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -36,7 +38,13 @@ public class EventHandler extends ListenerAdapter {
                 continue;
             }
             if (this.bot.getPlugin().getDataPackManager().dataPackExists(attachment.getFileName())) {
-                event.getMessage().reply(String.format("「%s」は既に存在しています。上書きしますか?", attachment.getFileName()))
+                event.getMessage()
+                        .replyEmbeds(
+                                new EmbedBuilder()
+                                        .setTitle(String.format("「%s」は既に存在しています。上書きしますか?", attachment.getFileName()))
+                                        .setColor(Color.RED)
+                                        .build()
+                        )
                         .addActionRow(
                                 Button.success("overwrite-" + attachment.getId() + "-" + event.getMessageId() + "-" + event.getMessage().getAuthor().getId(), "上書き"),
                                 Button.secondary("cancel-" + event.getMessage().getAuthor().getId(), "キャンセル")
@@ -44,15 +52,35 @@ public class EventHandler extends ListenerAdapter {
                         .queue();
                 continue;
             }
-            Message message = event.getMessage().reply(String.format("「%s」をダウンロードしています...", attachment.getFileName())).complete();
+            Message message = event.getMessage().replyEmbeds(
+                            new EmbedBuilder()
+                                    .setTitle(String.format("「%s」をダウンロードしています...", attachment.getFileName()))
+                                    .setColor(Color.GRAY)
+                                    .build()
+                    )
+                    .complete();
             downloadDataPack(attachment).thenAccept(
                     dataPackData -> {
                         if (dataPackData == null) {
-                            message.editMessage(String.format("「%s」は有効なデータパックではありません", attachment.getFileName())).queue();
+                            message
+                                    .editMessageEmbeds(
+                                            new EmbedBuilder()
+                                                    .setTitle(String.format("「%s」は有効なデータパックではありません", attachment.getFileName()))
+                                                    .setColor(Color.RED)
+                                                    .build()
+                                    )
+                                    .queue();
                             return;
                         }
                         this.bot.getPlugin().getDataPackManager().install(dataPackData.fileName(), dataPackData.data(), false);
-                        message.editMessage(String.format("「%s」をサーバーに導入しました！", attachment.getFileName())).queue();
+                        message
+                                .editMessageEmbeds(
+                                        new EmbedBuilder()
+                                                .setTitle(String.format("「%s」をサーバーに導入しました！", attachment.getFileName()))
+                                                .setColor(Color.GREEN)
+                                                .build()
+                                )
+                                .queue();
                     }
             );
 
@@ -66,7 +94,14 @@ public class EventHandler extends ListenerAdapter {
             if (!event.getInteraction().getUser().getId().equals(userId)) {
                 return;
             }
-            event.getInteraction().editMessage("キャンセルしました").setComponents().queue();
+            event.getInteraction().editMessageEmbeds(
+                            new EmbedBuilder()
+                                    .setTitle("キャンセルしました")
+                                    .setColor(Color.GRAY)
+                                    .build()
+                    )
+                    .setComponents()
+                    .queue();
         }
         if (event.getComponentId().startsWith("overwrite-")) {
             final String componentId = event.getComponentId();
@@ -80,7 +115,14 @@ public class EventHandler extends ListenerAdapter {
                 return;
             }
             if (message == null) {
-                event.getInteraction().reply("メッセージが見つかりませんでした").queue();
+                event.getInteraction().editMessageEmbeds(
+                                new EmbedBuilder()
+                                        .setTitle("メッセージが見つかりませんでした")
+                                        .setColor(Color.RED)
+                                        .build()
+                        )
+                        .setComponents()
+                        .queue();
                 return;
             }
 
@@ -89,23 +131,48 @@ public class EventHandler extends ListenerAdapter {
                     continue;
                 }
                 if (attachment.getId().equals(targetAttachmentId)) {
-                    event.getInteraction().editMessage(String.format("「%s」を上書きします...", attachment.getFileName())).setComponents().queue();
+                    event.getInteraction().editMessageEmbeds(
+                                    new EmbedBuilder()
+                                            .setTitle(String.format("「%s」を上書きします...", attachment.getFileName()))
+                                            .setColor(Color.GRAY)
+                                            .build()
+                            )
+                            .setComponents()
+                            .queue();
                     downloadDataPack(attachment).thenAccept(
                             dataPackData -> {
                                 if (dataPackData == null) {
-                                    event.getMessage().editMessage(String.format("「%s」は有効なデータパックではありません", attachment.getFileName())).queue();
+                                    event.getMessage()
+                                            .editMessageEmbeds(new EmbedBuilder()
+                                                    .setTitle(String.format("「%s」は有効なデータパックではありません", attachment.getFileName()))
+                                                    .setColor(Color.RED)
+                                                    .build())
+                                            .queue();
                                     return;
                                 }
                                 this.bot.getPlugin().getDataPackManager().install(dataPackData.fileName(), dataPackData.data(), true);
                                 if (this.bot.getPlugin().getDataPackManager().isDisabled(dataPackData.fileName())) {
-                                    event.getMessage().editMessage(String.format("「%s」は無効化されています。有効にしますか?", attachment.getFileName()))
+                                    event.getMessage()
+                                            .editMessageEmbeds(
+                                                    new EmbedBuilder()
+                                                            .setTitle(String.format("「%s」は無効化されています。有効にしますか?", attachment.getFileName()))
+                                                            .setColor(Color.GRAY)
+                                                            .build()
+                                            )
                                             .setActionRow(
                                                     Button.success("enable-" + attachment.getFileName() + "-" + event.getInteraction().getUser().getId(), "有効化する"),
                                                     Button.secondary("no-" + event.getInteraction().getUser().getId(), "有効化しない")
                                             )
                                             .queue();
                                 } else {
-                                    event.getMessage().editMessage(String.format("「%s」を上書きしました", attachment.getFileName())).queue();
+                                    event.getMessage()
+                                            .editMessageEmbeds(
+                                                    new EmbedBuilder()
+                                                            .setTitle(String.format("「%s」を上書きしました", attachment.getFileName()))
+                                                            .setColor(Color.GREEN)
+                                                            .build()
+                                            )
+                                            .queue();
                                 }
                             }
                     );
@@ -122,9 +189,26 @@ public class EventHandler extends ListenerAdapter {
 
             if (this.bot.getPlugin().getDataPackManager().isDisabled(fileName)) {
                 this.bot.getPlugin().getDataPackManager().enable(fileName);
-                event.getInteraction().editMessage(String.format("「%s」を有効化しました", fileName)).setComponents().queue();
+                event.getInteraction()
+                        .editMessageEmbeds(
+                                new EmbedBuilder()
+                                        .setTitle(String.format("「%s」を有効化しました", fileName))
+                                        .setColor(Color.GREEN)
+                                        .build()
+                        )
+                        .setComponents()
+                        .queue();
             } else {
-                event.getInteraction().editMessage(String.format("「%s」は既に有効化されています", fileName)).setComponents().queue();
+                event.getInteraction()
+                        .editMessage("")
+                        .setEmbeds(
+                                new EmbedBuilder()
+                                        .setTitle(String.format("「%s」は既に有効化されています", fileName))
+                                        .setColor(Color.GRAY)
+                                        .build()
+                        )
+                        .setComponents()
+                        .queue();
             }
         }
         if (event.getComponentId().startsWith("no-")) {
@@ -132,7 +216,16 @@ public class EventHandler extends ListenerAdapter {
             if (!event.getInteraction().getUser().getId().equals(userId)) {
                 return;
             }
-            event.getInteraction().editMessage("有効化せずに上書きしました").setComponents().queue();
+            event.getInteraction()
+                    .editMessage("")
+                    .setEmbeds(
+                            new EmbedBuilder()
+                                    .setTitle("有効化せずに上書きしました")
+                                    .setColor(Color.GREEN)
+                                    .build()
+                    )
+                    .setComponents()
+                    .queue();
         }
     }
 

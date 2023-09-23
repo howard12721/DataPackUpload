@@ -6,12 +6,12 @@
     <parent>
         <groupId>jp.xhw.datapackupload</groupId>
         <artifactId>DataPackUpload</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
 
     <groupId>jp.xhw.datapackupload.plugin</groupId>
     <artifactId>DataPackPlugin</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -73,12 +73,12 @@
         <dependency>
             <groupId>jp.xhw.datapackupload.nms</groupId>
             <artifactId>nms_common</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
         </dependency>
         <dependency>
             <groupId>jp.xhw.datapackupload.nms</groupId>
             <artifactId>v1_20_R1</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.1</version>
         </dependency>
         <dependency>
             <groupId>net.william278</groupId>

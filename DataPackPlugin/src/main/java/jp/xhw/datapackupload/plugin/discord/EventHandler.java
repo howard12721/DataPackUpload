@@ -21,7 +21,6 @@ import java.util.zip.ZipInputStream;
 public class EventHandler extends ListenerAdapter {
 
     private static final Set<String> requiredEntries = Set.of(
-            "data/",
             "pack.mcmeta"
     );
 
@@ -246,12 +245,16 @@ public class EventHandler extends ListenerAdapter {
                                 inputStream.read(data);
 
                                 try (ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(data))) {
+                                    boolean dataDirExists = false;
                                     Set<String> nameList = new HashSet<>();
                                     ZipEntry entry;
                                     while ((entry = zipInputStream.getNextEntry()) != null) {
+                                        if (entry.getName().startsWith("data/")) {
+                                            dataDirExists = true;
+                                        }
                                         nameList.add(entry.getName());
                                     }
-                                    if (!nameList.containsAll(requiredEntries)) {
+                                    if (!nameList.containsAll(requiredEntries) || !dataDirExists) {
                                         return null;
                                     }
                                 } catch (ZipException e) {

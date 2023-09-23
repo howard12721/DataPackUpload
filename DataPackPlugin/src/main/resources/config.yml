@@ -2,5 +2,3 @@ discord:
   token: "XXXXXXXXXXXXXX.XXXX.XXXX.XXXXXXXXXXXXXXX"
   upload-channels:
 #    - 984401149488660493
-  upload-roles:
-#    - 1134869459878817996

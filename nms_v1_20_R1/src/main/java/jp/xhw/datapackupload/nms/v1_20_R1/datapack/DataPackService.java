@@ -13,30 +13,54 @@ import java.util.stream.Collectors;
 @SuppressWarnings("unused")
 public class DataPackService implements IDataPackService {
 
-    @Override
-    public void enablePack(String entry) {
+    final Class<?> minecraftServerClass;
+    final Class<?> craftServerClass;
+    final Class<?> packRepositoryClass;
+    final Class<?> packClass;
+    final Class<?> positionClass;
+
+    final Field consoleField;
+    // Methods
+    final Method getPackRepositoryMethod;
+    final Method reloadResourcesMethod;
+    final Method reloadPackRepositoryMethod;
+    final Method getSelectedPacksMethod;
+    final Method getPackMethod;
+    final Method getDefaultPositionMethod;
+    final Method getIdMethod;
+    final Method insertMethod;
+
+    {
         try {
-            // Classes
-            final Class<?> minecraftServerClass = Class.forName("net.minecraft.server.MinecraftServer");
-            final Class<?> craftServerClass = Class.forName(Bukkit.getServer().getClass().getPackage().getName() + ".CraftServer");
-            final Class<?> packRepositoryClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackRepository");
-            final Class<?> packClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackLoader");
-            final Class<?> positionClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackLoader$Position");
-            // Fields
-            final Field consoleField = craftServerClass.getDeclaredField("console");
+            minecraftServerClass = Class.forName("net.minecraft.server.MinecraftServer");
+            craftServerClass = Class.forName(Bukkit.getServer().getClass().getPackage().getName() + ".CraftServer");
+            packRepositoryClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackRepository");
+            packClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackLoader");
+            positionClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackLoader$Position");
+
+            consoleField = craftServerClass.getDeclaredField("console");
             consoleField.setAccessible(true);
-            // Methods
-            final Method getPackRepositoryMethod = minecraftServerClass.getMethod("aB");
-            final Method reloadResourcesMethod = minecraftServerClass.getMethod("a", Collection.class);
-            final Method getSelectedPacksMethod = packRepositoryClass.getMethod("f");
-            final Method getPackMethod = packRepositoryClass.getMethod("c", String.class);
-            final Method getDefaultPositionMethod = packClass.getMethod("i");
-            final Method getIdMethod = packClass.getMethod("f");
-            final Method insertMethod = Arrays.stream(positionClass.getMethods())
+
+            getPackRepositoryMethod = minecraftServerClass.getMethod("aB");
+            reloadResourcesMethod = minecraftServerClass.getMethod("a", Collection.class);
+            reloadPackRepositoryMethod = packRepositoryClass.getMethod("a");
+            getSelectedPacksMethod = packRepositoryClass.getMethod("f");
+            getPackMethod = packRepositoryClass.getMethod("c", String.class);
+            getDefaultPositionMethod = packClass.getMethod("i");
+            getIdMethod = packClass.getMethod("f");
+            insertMethod = Arrays.stream(positionClass.getMethods())
                     .filter(method -> method.getName().equals("a") && method.getParameterCount() == 4)
                     .findAny()
                     .orElseThrow();
 
+        } catch (ClassNotFoundException | NoSuchFieldException | NoSuchMethodException e) {
+            throw new RuntimeException();
+        }
+    }
+
+    @Override
+    public void enablePack(String entry) {
+        try {
             final Object minecraftServer = consoleField.get(Bukkit.getServer());
             final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
             final Object pack = getPackMethod.invoke(packRepository, entry);
@@ -52,19 +76,8 @@ public class DataPackService implements IDataPackService {
             final Object position = getDefaultPositionMethod.invoke(pack);
             insertMethod.invoke(position, packList, pack, (Function<Object, Object>) o -> o, false);
 
-            Collection<String> idList = packList.stream()
-                    .map(p -> {
-                        try {
-                            return (String) getIdMethod.invoke(p);
-                        } catch (IllegalAccessException | InvocationTargetException e) {
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-            reloadResourcesMethod.invoke(minecraftServer, idList);
-        } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException | NoSuchMethodException |
-                 InvocationTargetException e) {
+            reloadPacksInternal(convertPackListToIdList(packList));
+        } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
         }
     }
@@ -72,21 +85,6 @@ public class DataPackService implements IDataPackService {
     @Override
     public void disablePack(String entry) {
         try {
-            // Classes
-            final Class<?> minecraftServerClass = Class.forName("net.minecraft.server.MinecraftServer");
-            final Class<?> craftServerClass = Class.forName(Bukkit.getServer().getClass().getPackage().getName() + ".CraftServer");
-            final Class<?> packRepositoryClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackRepository");
-            final Class<?> packClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackLoader");
-            // Fields
-            final Field consoleField = craftServerClass.getDeclaredField("console");
-            consoleField.setAccessible(true);
-            // Methods
-            final Method getPackRepositoryMethod = minecraftServerClass.getMethod("aB");
-            final Method reloadResourcesMethod = minecraftServerClass.getMethod("a", Collection.class);
-            final Method getSelectedPacksMethod = packRepositoryClass.getMethod("f");
-            final Method getPackMethod = packRepositoryClass.getMethod("c", String.class);
-            final Method getIdMethod = packClass.getMethod("f");
-
             final Object minecraftServer = consoleField.get(Bukkit.getServer());
             final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
             final Object pack = getPackMethod.invoke(packRepository, entry);
@@ -100,19 +98,19 @@ public class DataPackService implements IDataPackService {
 
             packList.remove(pack);
 
-            Collection<String> idList = packList.stream()
-                    .map(p -> {
-                        try {
-                            return (String) getIdMethod.invoke(p);
-                        } catch (IllegalAccessException | InvocationTargetException e) {
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-            reloadResourcesMethod.invoke(minecraftServer, idList);
-        } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException | NoSuchMethodException |
-                 InvocationTargetException e) {
+            reloadPacksInternal(convertPackListToIdList(packList));
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void reloadPackRepository() {
+        try {
+            Object minecraftServer = consoleField.get(Bukkit.getServer());
+            Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
+            reloadPackRepositoryMethod.invoke(packRepository);
+        } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
         }
     }
@@ -120,24 +118,49 @@ public class DataPackService implements IDataPackService {
     @Override
     public void reloadPacks() {
         try {
-            // Classes
-            Class<?> minecraftServerClass = Class.forName("net.minecraft.server.MinecraftServer");
-            Class<?> craftServerClass = Class.forName(Bukkit.getServer().getClass().getPackage().getName() + ".CraftServer");
-            Class<?> packRepositoryClass = Class.forName("net.minecraft.server.packs.repository.ResourcePackRepository");
-            // Fields
-            Field consoleField = craftServerClass.getDeclaredField("console");
-            consoleField.setAccessible(true);
-            //Methods
-            Method getPackRepositoryMethod = minecraftServerClass.getMethod("aB");
-            Method reloadMethod = packRepositoryClass.getMethod("a");
-
-            Object minecraftServer = consoleField.get(Bukkit.getServer());
-            Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
-            reloadMethod.invoke(packRepository);
-        } catch (ClassNotFoundException | NoSuchFieldException | IllegalAccessException | NoSuchMethodException |
-                 InvocationTargetException e) {
+            final Object minecraftServer = consoleField.get(Bukkit.getServer());
+            final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
+            final List<Object> packList = new ArrayList<>((Collection<?>) getSelectedPacksMethod.invoke(packRepository));
+            reloadPacksInternal(convertPackListToIdList(packList));
+        } catch (InvocationTargetException | IllegalAccessException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public List<String> getSelectedPacks() {
+        try {
+            final Object minecraftServer = consoleField.get(Bukkit.getServer());
+            final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
+            final List<Object> packList = new ArrayList<>((Collection<?>) getSelectedPacksMethod.invoke(packRepository));
+            return convertPackListToIdList(packList);
+        } catch (InvocationTargetException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+        return List.of();
+    }
+
+    private void reloadPacksInternal(Collection<String> idList) {
+        try {
+            Object minecraftServer = consoleField.get(Bukkit.getServer());
+
+            reloadResourcesMethod.invoke(minecraftServer, idList);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private List<String> convertPackListToIdList(List<Object> packList) {
+        return packList.stream()
+                .map(p -> {
+                    try {
+                        return (String) getIdMethod.invoke(p);
+                    } catch (IllegalAccessException | InvocationTargetException e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
 }

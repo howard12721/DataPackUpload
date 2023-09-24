@@ -6,7 +6,7 @@
 
 Discordからサーバーにデータパックを導入
 
-Spigot系 1.20だけ
+Spigot系 1.20~1.20.2
 
 ダウンロードは[**こちら**](https://github.com/howard12721/DataPackUpload/releases/latest)
 

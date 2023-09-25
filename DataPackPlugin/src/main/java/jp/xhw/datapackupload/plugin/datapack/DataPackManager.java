@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class DataPackManager {
 
@@ -57,15 +58,15 @@ public class DataPackManager {
         return !dataPackService.getSelectedPacks().contains(fileNameToEntry(fileName));
     }
 
-    public void enable(String fileName) {
-        dataPackService.enablePack(fileNameToEntry(fileName));
+    public CompletableFuture<Void> enable(String fileName) {
+        return dataPackService.enablePack(fileNameToEntry(fileName));
     }
 
-    public void disable(String fileName) {
-        dataPackService.disablePack(fileNameToEntry(fileName));
+    public CompletableFuture<Void> disable(String fileName) {
+        return dataPackService.disablePack(fileNameToEntry(fileName));
     }
 
-    public void install(String fileName, byte[] data, boolean replace) {
+    public CompletableFuture<Void> install(String fileName, byte[] data, boolean replace) {
         final File file = new File(dataPackDir, fileName);
         try {
             boolean reloadOnly = false;
@@ -77,7 +78,7 @@ public class DataPackManager {
                 }
             } else {
                 if (!file.createNewFile()) {
-                    return;
+                    return CompletableFuture.completedFuture(null);
                 }
             }
             try (FileOutputStream outputStream = new FileOutputStream(file, false)) {
@@ -85,23 +86,25 @@ public class DataPackManager {
             }
 
             if (reloadOnly) {
-                dataPackService.reloadPacks();
+                return dataPackService.reloadPacks();
             } else {
                 dataPackService.reloadPackRepository();
-                dataPackService.enablePack(fileNameToEntry(fileName));
+                return dataPackService.enablePack(fileNameToEntry(fileName));
             }
 
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return CompletableFuture.completedFuture(null);
     }
 
-    public void uninstall(String fileName) {
-        if (!dataPackExists(fileName)) return;
+    public CompletableFuture<Void> uninstall(String fileName) {
+        if (!dataPackExists(fileName)) return CompletableFuture.completedFuture(null);
 
-        dataPackService.disablePack(fileNameToEntry(fileName));
+        CompletableFuture<Void> response = dataPackService.disablePack(fileNameToEntry(fileName));
 
-        new File(dataPackDir, fileName).delete();
+        return response.thenAccept(v -> new File(dataPackDir, fileName).delete());
+
     }
 
     private String fileNameToEntry(String fileName) {

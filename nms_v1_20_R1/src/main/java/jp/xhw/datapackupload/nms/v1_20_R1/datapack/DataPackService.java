@@ -7,6 +7,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -20,7 +21,7 @@ public class DataPackService implements IDataPackService {
     final Class<?> positionClass;
 
     final Field consoleField;
-    
+
     final Method getPackRepositoryMethod;
     final Method reloadResourcesMethod;
     final Method reloadPackRepositoryMethod;
@@ -59,7 +60,7 @@ public class DataPackService implements IDataPackService {
     }
 
     @Override
-    public void enablePack(String entry) {
+    public CompletableFuture<Void> enablePack(String entry) {
         try {
             final Object minecraftServer = consoleField.get(Bukkit.getServer());
             final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
@@ -69,21 +70,22 @@ public class DataPackService implements IDataPackService {
             }
             final List<Object> packList = new ArrayList<>((Collection<?>) getSelectedPacksMethod.invoke(packRepository));
             if (packList.contains(pack)) {
-                return;
+                return CompletableFuture.completedFuture(null);
             }
 
 
             final Object position = getDefaultPositionMethod.invoke(pack);
             insertMethod.invoke(position, packList, pack, (Function<Object, Object>) o -> o, false);
 
-            reloadPacksInternal(convertPackListToIdList(packList));
+            return reloadPacksInternal(convertPackListToIdList(packList));
         } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public void disablePack(String entry) {
+    public CompletableFuture<Void> disablePack(String entry) {
         try {
             final Object minecraftServer = consoleField.get(Bukkit.getServer());
             final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
@@ -93,15 +95,16 @@ public class DataPackService implements IDataPackService {
             }
             final List<Object> packList = new ArrayList<>((Collection<?>) getSelectedPacksMethod.invoke(packRepository));
             if (!packList.contains(pack)) {
-                return;
+                return null;
             }
 
             packList.remove(pack);
 
-            reloadPacksInternal(convertPackListToIdList(packList));
+            return reloadPacksInternal(convertPackListToIdList(packList));
         } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -116,15 +119,16 @@ public class DataPackService implements IDataPackService {
     }
 
     @Override
-    public void reloadPacks() {
+    public CompletableFuture<Void> reloadPacks() {
         try {
             final Object minecraftServer = consoleField.get(Bukkit.getServer());
             final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
             final List<Object> packList = new ArrayList<>((Collection<?>) getSelectedPacksMethod.invoke(packRepository));
-            reloadPacksInternal(convertPackListToIdList(packList));
+            return reloadPacksInternal(convertPackListToIdList(packList));
         } catch (InvocationTargetException | IllegalAccessException e) {
             e.printStackTrace();
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
@@ -140,14 +144,16 @@ public class DataPackService implements IDataPackService {
         return List.of();
     }
 
-    private void reloadPacksInternal(Collection<String> idList) {
+    @SuppressWarnings("unchecked")
+    private CompletableFuture<Void> reloadPacksInternal(Collection<String> idList) {
         try {
             Object minecraftServer = consoleField.get(Bukkit.getServer());
 
-            reloadResourcesMethod.invoke(minecraftServer, idList);
+            return (CompletableFuture<Void>) reloadResourcesMethod.invoke(minecraftServer, idList);
         } catch (IllegalAccessException | InvocationTargetException e) {
             e.printStackTrace();
         }
+        return CompletableFuture.completedFuture(null);
     }
 
     private List<String> convertPackListToIdList(List<Object> packList) {

@@ -1,16 +1,17 @@
 package jp.xhw.datapackupload.nms.datapack;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface IDataPackService {
 
-    void enablePack(String entry);
+    CompletableFuture<Void> enablePack(String entry);
 
-    void disablePack(String entry);
+    CompletableFuture<Void> disablePack(String entry);
 
     void reloadPackRepository();
 
-    void reloadPacks();
+    CompletableFuture<Void> reloadPacks();
 
     List<String> getSelectedPacks();
 

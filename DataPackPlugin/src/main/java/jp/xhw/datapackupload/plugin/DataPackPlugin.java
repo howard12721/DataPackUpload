@@ -18,7 +18,6 @@ public final class DataPackPlugin extends JavaPlugin {
     private DataPackManager dataPackManager;
     @Getter
     private Settings settings;
-    @Getter
     DiscordBot discordBot;
 
     @Override

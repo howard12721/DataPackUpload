@@ -13,6 +13,8 @@ public interface IDataPackService {
 
     CompletableFuture<Void> reloadPacks();
 
+    List<String> getAvailablePacks();
+
     List<String> getSelectedPacks();
 
 }

@@ -1,6 +1,7 @@
 package jp.xhw.datapackupload.nms.v1_20_R1.datapack;
 
 import jp.xhw.datapackupload.nms.datapack.IDataPackService;
+import jp.xhw.datapackupload.nms.datapack.exceptions.DataPackNotFoundException;
 import org.bukkit.Bukkit;
 
 import java.lang.reflect.Field;
@@ -25,6 +26,7 @@ public class DataPackService implements IDataPackService {
     final Method getPackRepositoryMethod;
     final Method reloadResourcesMethod;
     final Method reloadPackRepositoryMethod;
+    final Method getAvailablePacksMethod;
     final Method getSelectedPacksMethod;
     final Method getPackMethod;
     final Method getDefaultPositionMethod;
@@ -45,6 +47,7 @@ public class DataPackService implements IDataPackService {
             getPackRepositoryMethod = minecraftServerClass.getMethod("aB");
             reloadResourcesMethod = minecraftServerClass.getMethod("a", Collection.class);
             reloadPackRepositoryMethod = packRepositoryClass.getMethod("a");
+            getAvailablePacksMethod = packRepositoryClass.getMethod("c");
             getSelectedPacksMethod = packRepositoryClass.getMethod("f");
             getPackMethod = packRepositoryClass.getMethod("c", String.class);
             getDefaultPositionMethod = packClass.getMethod("i");
@@ -66,7 +69,7 @@ public class DataPackService implements IDataPackService {
             final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
             final Object pack = getPackMethod.invoke(packRepository, entry);
             if (pack == null) {
-                throw new NoSuchElementException("データパックが見つかりませんでした");
+                return CompletableFuture.failedFuture(new DataPackNotFoundException());
             }
             final List<Object> packList = new ArrayList<>((Collection<?>) getSelectedPacksMethod.invoke(packRepository));
             if (packList.contains(pack)) {
@@ -91,7 +94,7 @@ public class DataPackService implements IDataPackService {
             final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
             final Object pack = getPackMethod.invoke(packRepository, entry);
             if (pack == null) {
-                throw new NoSuchElementException("データパックが見つかりませんでした");
+                return CompletableFuture.failedFuture(new DataPackNotFoundException());
             }
             final List<Object> packList = new ArrayList<>((Collection<?>) getSelectedPacksMethod.invoke(packRepository));
             if (!packList.contains(pack)) {
@@ -129,6 +132,19 @@ public class DataPackService implements IDataPackService {
             e.printStackTrace();
         }
         return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public List<String> getAvailablePacks() {
+        try {
+            final Object minecraftServer = consoleField.get(Bukkit.getServer());
+            final Object packRepository = getPackRepositoryMethod.invoke(minecraftServer);
+            final List<Object> packList = new ArrayList<>((Collection<?>) getAvailablePacksMethod.invoke(packRepository));
+            return convertPackListToIdList(packList);
+        } catch (InvocationTargetException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+        return List.of();
     }
 
     @Override

@@ -1,11 +1,11 @@
 package jp.xhw.datapackupload.plugin.datapack;
 
 import jp.xhw.datapackupload.nms.datapack.IDataPackService;
-import jp.xhw.datapackupload.plugin.exceptions.DataPackAlreadyExistsException;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+@SuppressWarnings("unused")
 public class DataPackManager {
 
     private final Plugin plugin;
@@ -48,14 +49,38 @@ public class DataPackManager {
         return response;
     }
 
-    public boolean dataPackExists(String fileName) {
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    public byte[] getDataPackData(String fileName) {
         final File file = new File(dataPackDir, fileName);
-        return file.exists();
+        if (!file.exists()) {
+            return new byte[0];
+        }
+        try (FileInputStream inputStream = new FileInputStream(file)) {
+            final byte[] data = new byte[inputStream.available()];
+            inputStream.read(data);
+            return data;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return new byte[0];
     }
 
-    public boolean isDisabled(String fileName) {
+    public PackState getPackState(String fileName) {
         dataPackService.reloadPackRepository();
-        return !dataPackService.getSelectedPacks().contains(fileNameToEntry(fileName));
+        final String entry = fileNameToEntry(fileName);
+        final boolean isExists = new File(dataPackDir, fileName).exists();
+        final boolean isAvailable = dataPackService.getAvailablePacks().contains(entry);
+        final boolean isSelected = dataPackService.getSelectedPacks().contains(entry);
+        if (!isExists) {
+            return PackState.NOT_EXISTS;
+        }
+        if (!isAvailable) {
+            return PackState.NOT_AVAILABLE;
+        }
+        if (!isSelected) {
+            return PackState.DISABLED;
+        }
+        return PackState.ENABLED;
     }
 
     public CompletableFuture<Void> enable(String fileName) {
@@ -66,30 +91,29 @@ public class DataPackManager {
         return dataPackService.disablePack(fileNameToEntry(fileName));
     }
 
-    public CompletableFuture<Void> install(String fileName, byte[] data, boolean replace) {
+    public CompletableFuture<Void> install(String fileName, byte[] data, boolean enableIfDisabled) {
         final File file = new File(dataPackDir, fileName);
+        final PackState packState = getPackState(fileName);
         try {
-            boolean reloadOnly = false;
-            if (file.exists()) {
-                if (!replace) {
-                    throw new DataPackAlreadyExistsException();
-                } else {
-                    reloadOnly = true;
-                }
-            } else {
+            if (!file.exists()) {
                 if (!file.createNewFile()) {
                     return CompletableFuture.completedFuture(null);
                 }
             }
+
             try (FileOutputStream outputStream = new FileOutputStream(file, false)) {
                 outputStream.write(data);
             }
 
-            if (reloadOnly) {
-                return dataPackService.reloadPacks();
-            } else {
+            if (packState == PackState.NOT_EXISTS || packState == PackState.NOT_AVAILABLE) {
                 dataPackService.reloadPackRepository();
                 return dataPackService.enablePack(fileNameToEntry(fileName));
+            } else {
+                CompletableFuture<Void> response = dataPackService.reloadPacks();
+                if (enableIfDisabled) {
+                    response.thenRun(() -> dataPackService.enablePack(fileNameToEntry(fileName)).join());
+                }
+                return response;
             }
 
         } catch (IOException e) {
@@ -98,13 +122,36 @@ public class DataPackManager {
         return CompletableFuture.completedFuture(null);
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     public CompletableFuture<Void> uninstall(String fileName) {
-        if (!dataPackExists(fileName)) return CompletableFuture.completedFuture(null);
-
-        CompletableFuture<Void> response = dataPackService.disablePack(fileNameToEntry(fileName));
-
-        return response.thenAccept(v -> new File(dataPackDir, fileName).delete());
-
+        switch (getPackState(fileName)) {
+            case NOT_EXISTS -> {
+                return CompletableFuture.completedFuture(null);
+            }
+            case ENABLED -> {
+                return dataPackService.disablePack(fileNameToEntry(fileName))
+                        .thenRun(() -> {
+                            new File(dataPackDir, fileName).delete();
+                            dataPackService.reloadPacks().join();
+                        });
+            }
+            case DISABLED -> {
+                return CompletableFuture
+                        .supplyAsync(() -> {
+                            new File(dataPackDir, fileName).delete();
+                            return null;
+                        })
+                        .thenRun(() -> dataPackService.reloadPacks().join());
+            }
+            case NOT_AVAILABLE -> {
+                return CompletableFuture
+                        .supplyAsync(() -> {
+                            new File(dataPackDir, fileName).delete();
+                            return null;
+                        });
+            }
+        }
+        return CompletableFuture.completedFuture(null);
     }
 
     private String fileNameToEntry(String fileName) {

@@ -10,6 +10,8 @@ Spigot系 1.20~1.20.2
 
 ダウンロードは[**こちら**](https://github.com/howard12721/DataPackUpload/releases/latest)
 
+最新のビルドは[**こちら**](https://github.com/howard12721/DataPackUpload/actions/workflows/build.yml)
+
 ## 💡 使い方
 
 ### 💬設定ファイル
